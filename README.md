@@ -1,2 +1,2 @@
 # RecordingPlayer
-Easy to play sound and generate waveforms
+Demo play sound and generate waveform

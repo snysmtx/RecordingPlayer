@@ -9,8 +9,6 @@
 #include <QPainter>
 #include <QDebug>
 
-#define inf 0x3f3f3f3f
-
 Widget::Widget(QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::Widget)
@@ -173,7 +171,7 @@ void Widget::paintWaveform(const QString &filePath)
 
     while (!out->atEnd()) {
         QStringList tempbar = out->readLine().split(",");
-        //        qDebug() << "x:" << tempbar.at(0) << "y:" << tempbar.at(1);
+        // qDebug() << "x:" << tempbar.at(0) << "y:" << tempbar.at(1);
 
         tmpX = tempbar.at(0);
         tmpY = tempbar.at(1);
