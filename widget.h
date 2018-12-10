@@ -38,6 +38,8 @@ private:
     AudioDevice *_pDev;
 
     QImage _image;
+
+    QString _dirPath;
 };
 
 #endif // WIDGET_H

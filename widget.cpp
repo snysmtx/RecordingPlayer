@@ -38,11 +38,11 @@ void Widget::onPlayBtnClick()
     //定义文件对话框标题
     fileDialog->setWindowTitle(tr("Open File"));
 
-    QString dirPath;
-    dirPath.append(QDir::homePath()).append("/Download");
+    if (_dirPath.isEmpty())
+        _dirPath.append(QDir::homePath()).append("/Download");
 
     //设置默认文件路径
-    fileDialog->setDirectory(dirPath);
+    fileDialog->setDirectory(_dirPath);
 
     //设置文件过滤器
     fileDialog->setNameFilter(tr("Audio(*.wav *.mp3 *.pcm)"));
@@ -56,8 +56,10 @@ void Widget::onPlayBtnClick()
     //打印所有选择的文件的路径
     QStringList filePaths;
 
-    if(fileDialog->exec())
+    if(fileDialog->exec()) {
+        _dirPath = fileDialog->directory().path();
         filePaths = fileDialog->selectedFiles();
+    }
 
     qDebug() << filePaths;
 
@@ -197,8 +199,8 @@ void Widget::paintWaveform(const QString &filePath)
     ui->customPlot->graph(0)->setData(x, y);
 
     // give the axes some labels:
-    ui->customPlot->xAxis->setLabel("Time");
-    ui->customPlot->yAxis->setLabel("Vol");
+    // ui->customPlot->xAxis->setLabel("Time");
+    // ui->customPlot->yAxis->setLabel("Vol");
 
     // set axes ranges, so we see all data:
     ui->customPlot->xAxis->setRange(0, x.at(x.size() - 1));
