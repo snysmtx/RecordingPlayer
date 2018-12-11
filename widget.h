@@ -8,6 +8,8 @@
 #include <QAudioOutput>
 #include <QSharedPointer>
 
+#include <QTimer>
+
 namespace Ui {
 class Widget;
 }
@@ -24,6 +26,13 @@ public slots:
     void onPlayBtnClick();
     void onStopPlay();
 
+private slots:
+    void onTimeOut();
+
+    void onSliderProgressClicked();
+    void onSliderProgressMoved();
+    void onSliderProgressReleased();
+
 private:
     void toPlayFile(const QString &filePath);
     void toCreateWaveform(const QString &filePath);
@@ -36,10 +45,13 @@ private:
 
     QAudioOutput *_pAudioOut;
     AudioDevice *_pDev;
+    QAudioFormat _format;
 
     QImage _image;
 
     QString _dirPath;
+
+    QTimer *_timer;
 };
 
 #endif // WIDGET_H

@@ -4,7 +4,7 @@
 
 #define T_UNUSED(c)            static_cast<void>(c)
 
-AudioDevice::AudioDevice(QByteArray pcm)
+AudioDevice::AudioDevice(const QByteArray &pcm)
     : _dataPcm(pcm)
 {
     open(QIODevice::ReadOnly); // 为了解决QIODevice::read (QIODevice): device not open
@@ -14,6 +14,19 @@ AudioDevice::AudioDevice(QByteArray pcm)
 AudioDevice::~AudioDevice()
 {
     close();
+}
+
+int AudioDevice::getProgressRate()
+{
+    return (static_cast<double>(_writeLen) / static_cast<double>(_dataPcm.size()) * 100);
+}
+
+void AudioDevice::setProgressRate(const int progress)
+{
+    double progressRate = static_cast<double>(progress) / 100;
+    qDebug() << "progressRate" << progressRate;
+
+    _writeLen = _dataPcm.size() * progressRate;
 }
 
 qint64 AudioDevice::readData(char *data, qint64 maxlen)

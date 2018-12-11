@@ -9,6 +9,8 @@
 #include <QPainter>
 #include <QDebug>
 
+#define PLAY_FINISH_PROGRESS 100
+
 Widget::Widget(QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::Widget)
@@ -20,8 +22,28 @@ Widget::Widget(QWidget *parent)
     // create graph
     ui->customPlot->addGraph();
 
+    ui->slider->setRange(0, 100);
+    ui->slider->setEnabled(false);
+    ui->slider->setFocusPolicy(Qt::NoFocus);
+
+    _timer = new QTimer();
+    _timer->setInterval(1000);
+
+    _format.setSampleRate(8000);
+    _format.setChannelCount(1);
+    _format.setSampleSize(8);
+    _format.setCodec("audio/pcm");
+    _format.setByteOrder(QAudioFormat::LittleEndian);
+    _format.setSampleType(QAudioFormat::SignedInt);
+
     connect(ui->playBtn, SIGNAL(clicked(bool)), this, SLOT(onPlayBtnClick()));
     connect(ui->stopBtn, SIGNAL(clicked(bool)), this, SLOT(onStopPlay()));
+
+    connect(_timer, SIGNAL(timeout()), this, SLOT(onTimeOut()));
+
+    connect(ui->slider, SIGNAL(costomSliderClicked()), this, SLOT(onSliderProgressClicked()));
+    connect(ui->slider, SIGNAL(sliderMoved(int)), this, SLOT(onSliderProgressMoved()));
+    connect(ui->slider, SIGNAL(sliderReleased()), this, SLOT(onSliderProgressReleased()));
 
     resize(800, 400);
 }
@@ -39,13 +61,13 @@ void Widget::onPlayBtnClick()
     fileDialog->setWindowTitle(tr("Open File"));
 
     if (_dirPath.isEmpty())
-        _dirPath.append(QDir::homePath()).append("/Download");
+        _dirPath.append(QDir::homePath()).append("/tmp/AudioSource");
 
     //设置默认文件路径
     fileDialog->setDirectory(_dirPath);
 
     //设置文件过滤器
-    fileDialog->setNameFilter(tr("Audio(*.wav *.mp3 *.pcm)"));
+    fileDialog->setNameFilter(tr("Audio(*.wav *.mp3 *.pcm *.au)"));
 
     //设置可以选择多个文件,默认为只能选择一个文件 QFileDialog::ExistingFiles
     // fileDialog->setFileMode(QFileDialog::ExistingFiles);
@@ -66,7 +88,7 @@ void Widget::onPlayBtnClick()
     Q_ASSERT(filePaths.size() <= 1);
 
     foreach (const QString &filePath, filePaths) {
-        toCreateWaveform(filePath);
+        // toCreateWaveform(filePath);
         toPlayFile(filePath);
         break;
     }
@@ -77,40 +99,102 @@ void Widget::onStopPlay()
     playOver();
 }
 
+void Widget::onTimeOut()
+{
+    qDebug() << "time out, progress rate:" << _pDev->getProgressRate();
+
+    ui->slider->setValue(_pDev->getProgressRate());
+
+    if (_pDev->getProgressRate() == PLAY_FINISH_PROGRESS) {
+        _timer->stop();
+        ui->slider->setValue(0);
+        ui->slider->setEnabled(false);
+    }
+}
+
+void Widget::onSliderProgressClicked()
+{
+    qDebug() << ui->slider->value();
+
+    _pAudioOut->suspend();
+    _pDev->setProgressRate(ui->slider->value());
+    _pAudioOut->resume();
+}
+
+void Widget::onSliderProgressMoved()
+{
+    if (_timer->isActive())
+        _timer->stop();
+
+    _pAudioOut->suspend();
+
+    qDebug() << ui->slider->value();
+}
+
+void Widget::onSliderProgressReleased()
+{
+    qDebug() << ui->slider->value();
+    _timer->start();
+
+    _pAudioOut->resume();
+}
+
+typedef struct
+{
+    uint32_t magic;       /* magic number */
+    uint32_t hdr_size;    /* size of this header */
+    uint32_t data_size;   /* length of data (optional) */
+    uint32_t encoding;    /* data encoding format */
+    uint32_t sample_rate; /* samples per second */
+    uint32_t channels;    /* number of interleaved channels */
+} Audio_filehdr;
+
+#include "g711.h"
+
 void Widget::toPlayFile(const QString &filePath)
 {
     //先把文件的pcm数据弄到内存数组里
-    QByteArray barray;
+    QByteArray bary;
 
     QFile f(filePath);
     if (!f.open(QIODevice::ReadOnly))
         return;
 
-    barray = f.readAll();
+    bary = f.readAll();
     f.close();
 
-    WAV_HDR *pHDR = reinterpret_cast<WAV_HDR *>(barray.data());
+    QDataStream stream(&bary, QIODevice::ReadOnly);
+    stream.setByteOrder(QDataStream::BigEndian);
 
-    qDebug() << "ChunkID : " << pHDR->rID << endl
-        << "ChunkSize : " << pHDR->rLen << endl
-        << "Format : " << pHDR->wID << endl
-        << "Subchunk1ID : " << pHDR->fId << endl
-        << "Subchunk1Size: " << pHDR->pcmHeaderLength << endl
-        << "AudioFormat: " << pHDR->wFormatTag << endl
-        << "NumChannels: " << pHDR->numChannels << endl
-        << "SampleRate: " << pHDR->nSamplesPerSec << endl
-        << "ByteRate: " << pHDR->nAvgBytesPerSec << endl
-        << "BlockAign: " << pHDR->numBlockAlingn << endl
-        << "BitsPerSample: " << pHDR->numBitsPerSample;
+    Audio_filehdr hdr;
 
-    qDebug() << "------------------------------------";
+    stream >> hdr.magic >> hdr.hdr_size >> hdr.data_size >> hdr.encoding >> hdr.sample_rate >> hdr.channels;
 
-    QAudioFormat fmt;
+    qDebug() << hdr.hdr_size << endl
+             << hdr.sample_rate << endl
+             << hdr.channels << endl
+             << hdr.encoding;
+//    qDebug() << barray.toHex();
 
-    fmt.setSampleRate(pHDR->nSamplesPerSec);
-    fmt.setChannelCount(pHDR->numChannels);
-    fmt.setSampleSize(pHDR->numBitsPerSample);
-    fmt.setCodec("audio/pcm");
+    // char *buffer = new char[];
+
+    QByteArray buffer;
+
+    char buf[2048];
+
+    int dataSize = 0;
+    while (dataSize < bary.size()) {
+
+        G711Decode(buf, bary.data() + dataSize, 1024, 0);
+
+        buffer.append(QByteArray(buf, 2048));
+
+        dataSize += 1024;
+    }
+
+    qDebug() << bary.size() << "," << buffer.size();
+
+//    return;
 
     if (_pAudioOut) {
         delete _pAudioOut;
@@ -122,12 +206,21 @@ void Widget::toPlayFile(const QString &filePath)
         _pDev = NULL;
     }
 
+    QAudioDeviceInfo info (QAudioDeviceInfo::defaultOutputDevice());
+    if(! info.isFormatSupported(_format))
+    {
+        _format = info.nearestFormat(_format);
+    }
+
     //创建声音输出对象并初始化
-    _pAudioOut = new QAudioOutput(fmt, this);
+    _pAudioOut = new QAudioOutput(info, _format, this);
 
     //创建自定义的IO设备
-    _pDev = new AudioDevice(barray);
+    _pDev = new AudioDevice(buffer);
     _pAudioOut->start(_pDev);
+
+    _timer->start();
+    ui->slider->setEnabled(true);
 }
 
 void Widget::toCreateWaveform(const QString &filePath)
@@ -151,6 +244,8 @@ void Widget::playOver()
 {
     if (_pAudioOut)
         _pAudioOut->stop();
+
+    _timer->stop();
 }
 
 void Widget::paintWaveform(const QString &filePath)

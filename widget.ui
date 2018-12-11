@@ -18,6 +18,13 @@
     <widget class="QCustomPlot" name="customPlot" native="true"/>
    </item>
    <item>
+    <widget class="CustomSlider" name="slider">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+    </widget>
+   </item>
+   <item>
     <layout class="QHBoxLayout" name="horizontalLayout">
      <item>
       <spacer name="horizontalSpacer">
@@ -83,6 +90,11 @@
    <extends>QWidget</extends>
    <header>qcustomplot.h</header>
    <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>CustomSlider</class>
+   <extends>QSlider</extends>
+   <header>custom/customslider.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

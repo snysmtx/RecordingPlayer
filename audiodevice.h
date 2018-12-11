@@ -8,8 +8,12 @@ class AudioDevice : public QIODevice
     Q_OBJECT
 
 public:
-    AudioDevice(QByteArray pcm);
+    AudioDevice(const QByteArray &pcm);
     ~AudioDevice();
+
+public:
+    int getProgressRate();
+    void setProgressRate(const int progress);
 
     // QIODevice interface
 protected:

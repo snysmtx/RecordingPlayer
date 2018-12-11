@@ -28,14 +28,17 @@ SOURCES += \
         widget.cpp \
     audiodevice.cpp \
     qcustomplot.cpp \
-    waveform/wav-file.cpp
+    waveform/wav-file.cpp \
+    custom/customslider.cpp
 
 HEADERS += \
         widget.h \
     audiodevice.h \
     qcustomplot.h \
     waveform/wav-def.h \
-    waveform/wav-file.h
+    waveform/wav-file.h \
+    custom/customslider.h \
+    g711.h
 
 FORMS += \
         widget.ui
